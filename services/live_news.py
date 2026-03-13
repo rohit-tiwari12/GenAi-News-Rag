@@ -4,38 +4,50 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
-def fetch_live_news(keyword="india", max_articles=5):
-    if not GNEWS_API_KEY:
-        raise ValueError("GNEWS_API_KEY is missing")
+if not NEWS_API_KEY:
+    raise ValueError("NEWS_API_KEY is missing in .env file")
 
-    url = "https://gnews.io/api/v4/search"
+
+def fetch_live_news(keyword="AI", max_articles=5):
+    url = "https://newsapi.org/v2/everything"
+
     params = {
         "q": keyword,
-        "lang": "en",
-        "country": "in",
-        "max": max_articles,
-        "apikey": GNEWS_API_KEY
+        "language": "en",
+        "pageSize": max_articles,
+        "apiKey": NEWS_API_KEY
     }
 
     try:
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
-    except Exception as e:
-        raise RuntimeError(f"GNews API request failed: {str(e)}")
 
-    if "errors" in data:
-        raise RuntimeError(f"GNews API error: {data['errors']}")
+    except Exception as e:
+        raise RuntimeError(f"NewsAPI request failed: {str(e)}")
 
     articles = []
+
     for item in data.get("articles", []):
+        text = (
+            item.get("content")
+            or item.get("description")
+            or item.get("title")
+            or ""
+        )
+
+        if not text.strip():
+            continue
+
         articles.append({
             "title": item.get("title"),
-            "content": item.get("description") or item.get("content") or "",
+            "content": text,
             "company": keyword,
             "date": (item.get("publishedAt") or "")[:10]
         })
+
+    print(f"Fetched {len(articles)} articles from NewsAPI")
 
     return articles

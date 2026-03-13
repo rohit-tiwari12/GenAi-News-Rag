@@ -67,35 +67,54 @@ def ingest_live_news(query: dict):
 # ---------------- ANALYZE NEWS ----------------
 @app.post("/analyze")
 def analyze():
-    """
-    Perform sentiment & emotion analysis
-    """
     if not NEWS_DB:
         return {"error": "No news found. Please ingest news first."}
 
     for item in NEWS_DB:
-        sentiment, score = analyze_sentiment(item["content"])
+        text = item.get("content", "")
+        if not text:
+            text = item.get("title", "")
+
+        sentiment, score = analyze_sentiment(text)
         item["sentiment"] = sentiment
         item["sentiment_score"] = score
-        item["emotion"] = detect_emotion(item["content"])
+        item["emotion"] = detect_emotion(text)
 
     return {
         "status": "analysis completed",
+        "count": len(NEWS_DB),
         "data": NEWS_DB
     }
-
 
 # ---------------- EMBED NEWS ----------------
 @app.post("/embed")
 def embed():
-    """
-    Embed news into FAISS vector store
-    """
     if not NEWS_DB:
         return {"error": "No news available to embed."}
 
-    VECTOR_DB.add_documents(NEWS_DB)
-    return {"status": "documents embedded successfully"}
+    valid_docs = []
+
+    for item in NEWS_DB:
+        text = item.get("content") or item.get("title")
+        if text:
+            valid_docs.append({
+                "content": text,
+                "metadata": {
+                    "title": item.get("title"),
+                    "date": item.get("date"),
+                    "company": item.get("company")
+                }
+            })
+
+    if not valid_docs:
+        return {"error": "No valid documents to embed."}
+
+    VECTOR_DB.add_documents(valid_docs)
+
+    return {
+        "status": "documents embedded successfully",
+        "count": len(valid_docs)
+    }
 
 
 # ---------------- CHAT (RAG) ----------------
