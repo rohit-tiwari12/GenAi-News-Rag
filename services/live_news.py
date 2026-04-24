@@ -4,20 +4,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
 
-if not NEWS_API_KEY:
-    raise ValueError("NEWS_API_KEY is missing in .env file")
+if not GNEWS_API_KEY:
+    raise ValueError("GNEWS_API_KEY is missing in .env file")
 
 
 def fetch_live_news(keyword="AI", max_articles=5):
-    url = "https://newsapi.org/v2/everything"
+    url = "https://gnews.io/api/v4/search"
 
     params = {
         "q": keyword,
-        "language": "en",
-        "pageSize": max_articles,
-        "apiKey": NEWS_API_KEY
+        "lang": "en",
+        "max": max_articles,
+        "apikey": GNEWS_API_KEY
     }
 
     try:
@@ -26,7 +26,7 @@ def fetch_live_news(keyword="AI", max_articles=5):
         data = response.json()
 
     except Exception as e:
-        raise RuntimeError(f"NewsAPI request failed: {str(e)}")
+        raise RuntimeError(f"GNews request failed: {str(e)}")
 
     articles = []
 
@@ -48,6 +48,6 @@ def fetch_live_news(keyword="AI", max_articles=5):
             "date": (item.get("publishedAt") or "")[:10]
         })
 
-    print(f"Fetched {len(articles)} articles from NewsAPI")
+    print(f"Fetched {len(articles)} articles from GNews")
 
     return articles

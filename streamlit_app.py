@@ -4,41 +4,84 @@ import pandas as pd
 
 API_BASE_URL = "http://127.0.0.1:8000"
 
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="GenAI News Intelligence",
     page_icon="🧠",
-    layout="centered"
+    layout="wide"
 )
 
-st.title("🧠 GenAI News Intelligence Assistant")
-st.write("Live news • Sentiment analysis • RAG-based Q&A")
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #f4f6f9;
+}
+.main-title {
+    font-size: 42px;
+    font-weight: 700;
+    color: #0f172a;
+}
+.subtitle {
+    color: #64748b;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+.card {
+    background-color: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+.metric-card {
+    background: linear-gradient(135deg, #6366f1, #3b82f6);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------- STEP 1 ----------------
-st.header("1️⃣ Choose a Topic")
+# ---------------- HEADER ----------------
+st.markdown('<div class="main-title">🧠 GenAI News Intelligence</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Real-time News • Sentiment Analysis • AI-powered Q&A</div>', unsafe_allow_html=True)
 
-keyword = st.text_input(
-    "Enter a company / topic",
-    placeholder="e.g. Tata Motors, Stock Market, AI"
-)
+# ---------------- INPUT SECTION ----------------
+st.markdown('<div class="card">', unsafe_allow_html=True)
 
-# ---------------- STEP 2 ----------------
-st.header("2️⃣ Fetch, Analyze & Visualize News")
+col1, col2 = st.columns([3,1])
 
-if st.button("Fetch Live News"):
+with col1:
+    keyword = st.text_input(
+        "🔍 Enter a topic",
+        placeholder="e.g. Tesla, AI, Stock Market"
+    )
+
+with col2:
+    fetch_btn = st.button("🚀 Analyze")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------- PROCESS ----------------
+if fetch_btn:
     if not keyword:
         st.warning("Please enter a topic first.")
     else:
+        progress = st.progress(0)
+
         with st.spinner("Fetching live news..."):
-            requests.post(
-                f"{API_BASE_URL}/ingest/live",
-                json={"keyword": keyword}
-            )
+            requests.post(f"{API_BASE_URL}/ingest/live", json={"keyword": keyword})
+            progress.progress(30)
 
-        with st.spinner("Analyzing sentiment & emotion..."):
+        with st.spinner("Analyzing sentiment..."):
             analyze_resp = requests.post(f"{API_BASE_URL}/analyze")
+            progress.progress(60)
 
-        with st.spinner("Creating vector embeddings..."):
+        with st.spinner("Creating embeddings..."):
             requests.post(f"{API_BASE_URL}/embed")
+            progress.progress(100)
 
         if analyze_resp.status_code == 200:
             data = analyze_resp.json().get("data", [])
@@ -48,34 +91,45 @@ if st.button("Fetch Live News"):
 
                 st.success("✅ Analysis completed")
 
-                # -------- SENTIMENT CHART --------
-                st.subheader("📊 Sentiment Distribution")
+                # ---------------- KPI CARDS ----------------
+                c1, c2, c3, c4 = st.columns(4)
 
-                sentiment_counts = df["sentiment"].value_counts()
-                st.bar_chart(sentiment_counts)
+                c1.markdown(f'<div class="metric-card">📰<br>{len(df)}<br>Total News</div>', unsafe_allow_html=True)
+                c2.markdown(f'<div class="metric-card">😊<br>{(df["sentiment"]=="positive").sum()}<br>Positive</div>', unsafe_allow_html=True)
+                c3.markdown(f'<div class="metric-card">😡<br>{(df["sentiment"]=="negative").sum()}<br>Negative</div>', unsafe_allow_html=True)
+                c4.markdown(f'<div class="metric-card">😐<br>{(df["sentiment"]=="neutral").sum()}<br>Neutral</div>', unsafe_allow_html=True)
 
-                # -------- EMOTION TABLE --------
-                st.subheader("😊 Emotion Overview")
-                st.dataframe(df[["title", "sentiment", "emotion"]])
+                # ---------------- CHART + TABLE ----------------
+                col1, col2 = st.columns([1,1])
+
+                with col1:
+                    st.markdown("### 📊 Sentiment Distribution")
+                    st.bar_chart(df["sentiment"].value_counts())
+
+                with col2:
+                    st.markdown("### 😊 Emotion Overview")
+                    st.dataframe(df[["title", "sentiment", "emotion"]], use_container_width=True)
 
             else:
                 st.warning("No news data available.")
         else:
-            st.error("Failed to analyze news.")
+            st.error("Analysis failed")
 
-# ---------------- STEP 3 ----------------
-st.header("3️⃣ Ask Questions")
+# ---------------- CHAT SECTION ----------------
+st.markdown('<div class="card">', unsafe_allow_html=True)
+
+st.markdown("### 💬 Ask AI")
 
 question = st.text_input(
     "Ask a question",
-    placeholder="Why is sentiment negative today?"
+    placeholder="What is happening in AI news?"
 )
 
-if st.button("Ask"):
+if st.button("💡 Get Answer"):
     if not question:
         st.warning("Please enter a question.")
     else:
-        with st.spinner("Thinking..."):
+        with st.spinner("🤖 Generating answer..."):
             response = requests.post(
                 f"{API_BASE_URL}/chat",
                 json={"question": question}
@@ -83,10 +137,13 @@ if st.button("Ask"):
 
         if response.status_code == 200:
             result = response.json()
+
             if "answer" in result:
-                st.markdown("### 💡 Answer")
-                st.write(result["answer"])
+                st.markdown("### 🧠 AI Answer")
+                st.success(result["answer"])
             else:
                 st.error(result.get("error", "Something went wrong"))
         else:
             st.error("Chat request failed")
+
+st.markdown('</div>', unsafe_allow_html=True)
