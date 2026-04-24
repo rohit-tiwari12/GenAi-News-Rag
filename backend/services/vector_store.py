@@ -1,12 +1,14 @@
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 class VectorStore:
     def __init__(self):
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.vectorizer = TfidfVectorizer()
         self.index = None
         self.documents = []
+        self.embeddings = None
 
     def add_documents(self, docs):
         """
@@ -16,13 +18,16 @@ class VectorStore:
             return
 
         texts = [d["content"] for d in docs]
-        embeddings = self.model.encode(texts)
-        embeddings = np.array(embeddings).astype("float32")
+
+        # Convert text → TF-IDF vectors
+        embeddings = self.vectorizer.fit_transform(texts).toarray().astype("float32")
 
         if self.index is None:
             self.index = faiss.IndexFlatL2(embeddings.shape[1])
 
         self.index.add(embeddings)
+
+        self.embeddings = embeddings
         self.documents.extend(docs)
 
     def search(self, query, k=3):
@@ -32,10 +37,9 @@ class VectorStore:
         if self.index is None or not self.documents:
             return []
 
-        query_embedding = self.model.encode([query])
-        query_embedding = np.array(query_embedding).astype("float32")
+        query_vec = self.vectorizer.transform([query]).toarray().astype("float32")
 
-        distances, indices = self.index.search(query_embedding, k)
+        distances, indices = self.index.search(query_vec, k)
 
         results = []
         for idx in indices[0]:

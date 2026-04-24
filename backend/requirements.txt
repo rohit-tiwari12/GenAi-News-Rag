@@ -1,7 +1,9 @@
 fastapi
 uvicorn
 faiss-cpu
-sentence-transformers
+transformers
+torch==2.2.2
+scikit-learn
 groq
 gnews
 python-dotenv
