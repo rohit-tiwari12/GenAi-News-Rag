@@ -76,15 +76,19 @@ if fetch_btn:
             progress.progress(30)
 
         with st.spinner("Analyzing sentiment..."):
-            analyze_resp = requests.post(f"{API_BASE_URL}/analyze")
+            requests.post(f"{API_BASE_URL}/analyze")
             progress.progress(60)
 
         with st.spinner("Creating embeddings..."):
             requests.post(f"{API_BASE_URL}/embed")
+            progress.progress(80)
+
+        with st.spinner("Loading results..."):
+            news_resp = requests.get(f"{API_BASE_URL}/news")
             progress.progress(100)
 
-        if analyze_resp.status_code == 200:
-            data = analyze_resp.json().get("data", [])
+        if news_resp.status_code == 200:
+            data = news_resp.json().get("data", [])
 
             if data:
                 df = pd.DataFrame(data)
@@ -113,7 +117,7 @@ if fetch_btn:
             else:
                 st.warning("No news data available.")
         else:
-            st.error("Analysis failed")
+            st.error("Failed to fetch processed data")
 
 # ---------------- CHAT SECTION ----------------
 st.markdown('<div class="card">', unsafe_allow_html=True)

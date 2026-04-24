@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from services.sentiment import analyze_sentiment
@@ -10,9 +11,19 @@ from services.live_news import fetch_live_news
 # Load environment variables
 load_dotenv()
 
+# Initialize app
 app = FastAPI(title="GenAI News RAG API (Groq + Live News)")
 
-# In-memory storage
+# ---------------- CORS ----------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------- GLOBAL STORAGE ----------------
 NEWS_DB = []
 VECTOR_DB = VectorStore()
 
@@ -20,15 +31,36 @@ VECTOR_DB = VectorStore()
 # ---------------- ROOT ----------------
 @app.get("/")
 def root():
-    return {"message": "GenAI News RAG API is running"}
+    return {"message": "GenAI News RAG API is running 🚀"}
+
+
+# ---------------- HEALTH ----------------
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# ---------------- GET ALL NEWS (NEW - IMPORTANT) ----------------
+@app.get("/news")
+def get_news():
+    return {
+        "count": len(NEWS_DB),
+        "data": NEWS_DB
+    }
+
+
+# ---------------- RESET (OPTIONAL - DEBUGGING) ----------------
+@app.post("/reset")
+def reset():
+    NEWS_DB.clear()
+    global VECTOR_DB
+    VECTOR_DB = VectorStore()
+    return {"status": "reset successful"}
 
 
 # ---------------- INGEST MANUAL NEWS ----------------
 @app.post("/ingest")
 def ingest(news: dict):
-    """
-    Ingest manual news article
-    """
     NEWS_DB.append(news)
     return {
         "status": "news ingested",
@@ -39,9 +71,6 @@ def ingest(news: dict):
 # ---------------- INGEST LIVE NEWS ----------------
 @app.post("/ingest/live")
 def ingest_live_news(query: dict):
-    """
-    Fetch and ingest live news using GNews API
-    """
     try:
         keyword = query.get("keyword", "india")
         articles = fetch_live_news(keyword)
@@ -71,9 +100,7 @@ def analyze():
         return {"error": "No news found. Please ingest news first."}
 
     for item in NEWS_DB:
-        text = item.get("content", "")
-        if not text:
-            text = item.get("title", "")
+        text = item.get("content") or item.get("title", "")
 
         sentiment, score = analyze_sentiment(text)
         item["sentiment"] = sentiment
@@ -82,9 +109,9 @@ def analyze():
 
     return {
         "status": "analysis completed",
-        "count": len(NEWS_DB),
-        "data": NEWS_DB
+        "count": len(NEWS_DB)
     }
+
 
 # ---------------- EMBED NEWS ----------------
 @app.post("/embed")
@@ -120,15 +147,11 @@ def embed():
 # ---------------- CHAT (RAG) ----------------
 @app.post("/chat")
 def chat(query: dict):
-    """
-    RAG-based question answering
-    """
     try:
         question = query.get("question")
+
         if not question or not isinstance(question, str):
-            return {
-                "error": "Invalid request. Please provide a non-empty 'question' field."
-            }
+            return {"error": "Provide valid 'question'"}
 
         results = VECTOR_DB.search(question)
 
@@ -146,6 +169,6 @@ def chat(query: dict):
 
     except Exception as e:
         return {
-            "error": "Chat service failed unexpectedly.",
+            "error": "Chat failed",
             "details": str(e)
         }
